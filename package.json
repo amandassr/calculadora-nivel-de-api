@@ -1,0 +1,11 @@
+{
+  "name": "calculadora-nivel-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Calculadora de nível de API e venda online (Link/CNP) para credenciadoras, com pesquisador de atividades e regras descritas.",
+  "scripts": {
+    "test": "node --test tests/engine.test.js",
+    "build": "node scripts/build.js",
+    "dados": "python3 scripts/extrair_planilha.py caminho/da/planilha.xlsx"
+  }
+}

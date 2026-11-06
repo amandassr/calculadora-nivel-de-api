@@ -1,0 +1,357 @@
+<title>Calculadora de Nível de API</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: cabeçalho com abas; em telas largas formulário à esquerda e resultado fixo à direita. */
+:root{
+  --bg:#f4f6f7; --surface:#ffffff; --fg:#17262b; --muted:#5b6b71; --line:#d9e0e3;
+  --accent:#0d6b7c; --accent-fg:#ffffff; --accent-soft:#e0f0f3;
+  --ok:#17794a; --ok-soft:#e1f3e9; --bad:#b3261e; --bad-soft:#fbe6e4; --warn:#9a5b00; --warn-soft:#fff1d6;
+  --font:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1a1d; --surface:#16252a; --fg:#e4eef0; --muted:#98aab0; --line:#2a3d43;
+  --accent:#4fc0d3; --accent-fg:#06222a; --accent-soft:#17353d;
+  --ok:#5fd394; --ok-soft:#163a29; --bad:#ff8f86; --bad-soft:#41201d; --warn:#f2b45a; --warn-soft:#3d2d10; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a1d; --surface:#16252a; --fg:#e4eef0; --muted:#98aab0; --line:#2a3d43;
+  --accent:#4fc0d3; --accent-fg:#06222a; --accent-soft:#17353d;
+  --ok:#5fd394; --ok-soft:#163a29; --bad:#ff8f86; --bad-soft:#41201d; --warn:#f2b45a; --warn-soft:#3d2d10; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--font);margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+.wrap{max-width:1180px;margin:0 auto}
+header{padding-block:24px 0}
+h1{font-size:1.5rem;margin:0 0 4px;font-weight:600;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 16px;max-width:70ch}
+nav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+nav button{font:inherit;background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;color:var(--muted);cursor:pointer;font-weight:500}
+nav button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+nav button:hover{color:var(--fg)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-top:20px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px}
+.panel+.panel{margin-top:16px}
+.panel h2{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;font-weight:600}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:560px){.fields{grid-template-columns:minmax(0,1fr)}}
+.f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.f.full{grid-column:1/-1}
+label,.lbl{font-size:.85rem;font-weight:500}
+.hint{font-size:.78rem;color:var(--muted)}
+select,input[type=text],input[type=number],input[type=search]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;min-width:0}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--bg)}
+.seg button{flex:1;font:inherit;border:0;background:none;color:var(--fg);padding:8px 10px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:.9rem}
+.chk input{margin-top:4px}
+.note{font-size:.82rem;color:var(--muted);margin:10px 0 0}
+.banner{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:8px 12px;font-size:.84rem;display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px}
+.banner button{font:inherit;font-size:.82rem;background:none;border:1px solid currentColor;color:inherit;border-radius:5px;padding:3px 10px;cursor:pointer}
+.result{position:sticky;top:12px}
+@media (max-width:900px){.result{position:static}}
+.verdict{display:flex;gap:16px;align-items:center;margin-bottom:14px}
+.lvl{font-family:var(--mono);font-size:3rem;font-weight:500;line-height:1;min-width:2.2ch;text-align:center}
+.chip{display:inline-block;border-radius:999px;padding:3px 12px;font-size:.78rem;font-weight:600;letter-spacing:.04em}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.neutral{background:var(--accent-soft);color:var(--accent)}
+.vname{font-weight:600;font-size:1.05rem}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:.76rem;letter-spacing:.04em;text-transform:uppercase}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+tr.hi td{background:var(--accent-soft);font-weight:600}
+.reasons{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.reasons li{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:7px 10px;font-size:.84rem}
+.reasons li.bad{background:var(--bad-soft);color:var(--bad)}
+.steps{margin:0;padding-left:20px;font-size:.86rem;display:flex;flex-direction:column;gap:4px}
+.pill{display:inline-block;font-size:.72rem;font-weight:600;border-radius:4px;padding:1px 7px;margin-right:6px}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.na{background:var(--accent-soft);color:var(--accent)}
+.btn{font:inherit;background:var(--accent);color:var(--accent-fg);border:0;border-radius:6px;padding:8px 14px;cursor:pointer;font-weight:600}
+.btn.ghost{background:none;color:var(--accent);border:1px solid var(--accent)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.found{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:260px;overflow:auto}
+.found button{font:inherit;text-align:left;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 10px;cursor:pointer}
+.found button:hover{border-color:var(--accent)}
+.code{font-family:var(--mono);font-size:.82rem;color:var(--muted)}
+.res{border:1px solid var(--line);border-radius:8px;padding:14px;background:var(--surface);margin-top:12px}
+.res h3{margin:0 0 4px;font-size:1rem}
+.mccbox{border-top:1px dashed var(--line);margin-top:10px;padding-top:10px}
+.flags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.flag{font-size:.75rem;border-radius:4px;padding:2px 8px;border:1px solid var(--line)}
+.flag.y{background:var(--ok-soft);color:var(--ok);border-color:transparent}.flag.n{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.doc h2{font-size:1.15rem;text-transform:none;letter-spacing:0;color:var(--fg);margin:0 0 8px}
+.doc h3{font-size:.95rem;margin:18px 0 6px}
+.doc p,.doc li{max-width:78ch}
+.doc ul{margin:6px 0;padding-left:20px}
+.err{color:var(--bad);font-size:.9rem;margin:0}
+@media (prefers-reduced-motion:no-preference){.panel{transition:border-color .15s}}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Calculadora de Nível de API</h1>
+  <p class="sub">Permissionamento de credenciadoras na Paytime: informe os dados da análise e veja o nível, as permissões e se a venda online está liberada. Baseada nos procedimentos "Permissionamento API" e "Permissionamento Venda CNP" e na planilha de definições da Prevenção.</p>
+  <nav role="tablist" id="tabs">
+    <button role="tab" data-tab="api" aria-selected="true">Venda online via API</button>
+    <button role="tab" data-tab="link" aria-selected="false">Venda online via Link (CNP)</button>
+    <button role="tab" data-tab="busca" aria-selected="false">Pesquisar atividade</button>
+    <button role="tab" data-tab="regras" aria-selected="false">Regras</button>
+  </nav>
+</header>
+<main>
+
+<section id="tab-api" role="tabpanel">
+  <div class="banner" id="bannerApi"><span>Formulário com um caso de exemplo. Substitua pelos dados do parceiro.</span><button type="button" id="limparApi">Limpar tudo</button></div>
+  <div class="grid">
+    <div>
+      <div class="panel"><h2>Identificação</h2>
+        <div class="fields">
+          <div class="f"><span class="lbl">Parceiro</span><div class="seg" data-seg="a_tipo"><button type="button" data-v="ativo">Já ativo</button><button type="button" data-v="novo">Novo</button></div></div>
+          <div class="f"><span class="lbl">CNPJ regular</span><div class="seg" data-seg="a_cnpj"><button type="button" data-v="sim">Sim</button><button type="button" data-v="nao">Não</button></div><span class="hint">Suspenso, inapto ou baixado = irregular</span></div>
+          <div class="f"><label for="a_tempo">Tempo de operação</label><select id="a_tempo"><option value="">Selecione</option><option value="0-6m">0 a 6 meses</option><option value="6m-1a">6 meses a 1 ano</option><option value="1-3a">1 a 3 anos</option><option value=">3a">Mais de 3 anos</option></select><span class="hint">Considerar outros CNPJs vinculados. Usar o maior entre tempo de mercado e de parceria.</span></div>
+          <div class="f"><label for="a_rep">Reputação no mercado (risco do KYC)</label><select id="a_rep"><option value="">Selecione</option><option value="baixo">Baixo risco</option><option value="medio">Médio risco</option><option value="alto">Alto risco</option><option value="inaceitavel">Inaceitável</option></select><span class="hint">KYC com mais de 6 meses precisa ser refeito.</span></div>
+        </div>
+      </div>
+      <div class="panel" id="a_hist"><h2>Histórico financeiro</h2>
+        <div class="fields">
+          <div class="f" data-only="ativo"><label for="a_mov">Movimentação transacional (3 meses)</label><select id="a_mov"><option value="">Selecione</option><option value="padrao">Dentro do padrão</option><option value="parcial">Parcial (sem indícios relevantes)</option><option value="fora">Fora do padrão</option></select></div>
+          <div class="f" data-only="ativo"><label for="a_disp">Disputas e chargeback (6 meses)</label><select id="a_disp"><option value="">Selecione</option><option value="ate10">Até 10% da comissão</option><option value="11-50">Entre 11% e 50%</option><option value=">50">Acima de 50%</option></select></div>
+          <div class="f" data-only="ativo"><label for="a_dv">Valor das disputas (R$, 6 meses)</label><input type="number" id="a_dv" min="0" step="0.01" inputmode="decimal" placeholder="opcional"></div>
+          <div class="f" data-only="ativo"><label for="a_cv">Valor da comissão (R$, 6 meses)</label><input type="number" id="a_cv" min="0" step="0.01" inputmode="decimal" placeholder="opcional"><span class="hint" id="a_dhint">Preencha os dois valores e a faixa de disputas é escolhida sozinha.</span></div>
+          <div class="f"><label for="a_cap">Capacidade financeira</label><select id="a_cap"><option value="">Selecione</option><option value="boa">Boa (faturamento ≥ R$ 500 mil)</option><option value="media">Média (≥ R$ 300 mil)</option><option value="baixa">Baixa (&lt; R$ 300 mil)</option></select></div>
+          <div class="f"><label for="a_fat">Faturamento do último mês (R$)</label><input type="number" id="a_fat" min="0" step="0.01" inputmode="decimal" placeholder="opcional"><span class="hint">Valores menores podem ser aceitos com aporte financeiro ou comissão no portal que complete. Nesse caso, ajuste a capacidade manualmente.</span></div>
+        </div>
+      </div>
+      <div class="panel"><h2>Segmento de atuação</h2>
+        <div class="fields">
+          <div class="f"><label for="a_setor">Risco do setor (venda online API)</label><select id="a_setor"><option value="">Selecione</option><option value="apta">Atividade apta</option><option value="inapta">Atividade inapta</option><option value="sem">Sem definição</option></select><span class="hint" id="a_setorhint">Pesquise a atividade ao lado para preencher.</span></div>
+          <div class="f"><label for="a_banking">Atividade para banking</label><select id="a_banking"><option value="sem">Sem definição</option><option value="apta">Atividade apta</option><option value="inapta">Atividade inapta</option></select></div>
+          <div class="f full"><label for="a_q">Pesquisar atividade (CNAE ou MCC)</label><input type="search" id="a_q" placeholder="Ex.: 47.81-4-00, veterinários, 5651"><div class="found" id="a_found"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="result"><div class="panel" id="a_out"></div></div>
+  </div>
+</section>
+
+<section id="tab-link" role="tabpanel" hidden>
+  <div class="banner" id="bannerLink"><span>Formulário com um caso de exemplo. Substitua pelos dados da credenciadora.</span><button type="button" id="limparLink">Limpar tudo</button></div>
+  <div class="grid">
+    <div>
+      <div class="panel"><h2>Identificação</h2>
+        <div class="fields">
+          <div class="f"><span class="lbl">Parceiro</span><div class="seg" data-seg="l_tipo"><button type="button" data-v="ativo">Já ativo</button><button type="button" data-v="novo">Novo</button></div></div>
+          <div class="f"><span class="lbl">CNPJ ativo e regular</span><div class="seg" data-seg="l_cnpj"><button type="button" data-v="sim">Sim</button><button type="button" data-v="nao">Não</button></div></div>
+          <div class="f"><label for="l_kyc">Risco do KYC da credenciadora</label><select id="l_kyc"><option value="">Selecione</option><option value="baixo">Baixo risco</option><option value="medio">Médio risco</option><option value="alto">Alto risco</option><option value="inaceitavel">Inaceitável</option></select></div>
+          <div class="f"><label for="l_porte">Porte da empresa</label><select id="l_porte"><option value="">Selecione</option><option value="mei">MEI (limite R$ 81 mil/ano)</option><option value="pequeno">Pequeno (capital até R$ 360 mil)</option><option value="medio">Médio (até R$ 4,8 milhões)</option><option value="grande">Grande (acima de R$ 4,8 milhões)</option></select></div>
+          <div class="f"><label for="l_cap">Capital social (R$), para sugerir o porte</label><input type="number" id="l_cap" min="0" step="0.01" inputmode="decimal" placeholder="opcional"><span class="hint">Avaliar também sócios, empresas vinculadas e patrimônio.</span></div>
+        </div>
+      </div>
+      <div class="panel" data-only="ativo"><h2>Parceiro ativo: histórico</h2>
+        <div class="fields">
+          <div class="f"><label for="l_dv">Valor das disputas (R$, 6 meses)</label><input type="number" id="l_dv" min="0" step="0.01" inputmode="decimal"></div>
+          <div class="f"><label for="l_cv">Valor da comissão (R$, 6 meses)</label><input type="number" id="l_cv" min="0" step="0.01" inputmode="decimal"><span class="hint" id="l_dhint"></span></div>
+          <div class="f"><label for="l_ab">Tempo de abertura do CNPJ</label><select id="l_ab"><option value="">Selecione</option><option value="ate6m">0 a 6 meses</option><option value="6m-1a">6 meses a 1 ano</option><option value="mais1a">Mais de 1 ano</option></select></div>
+          <div class="f"><span class="lbl">Movimentação compatível com a atividade do EC</span><div class="seg" data-seg="l_mov"><button type="button" data-v="sim">Sim</button><button type="button" data-v="nao">Não</button></div></div>
+          <div class="f full"><label class="chk"><input type="checkbox" id="l_rep"><span>Histórico reputacional negativo com a Paytime (avaliar com a Coordenação)</span></label></div>
+          <div class="f" data-only-mei><label for="l_tpv">TPV acumulado nos últimos 6 meses (R$)</label><input type="number" id="l_tpv" min="0" step="0.01" inputmode="decimal"></div>
+          <div class="f" data-only-mei><span class="lbl">Cadastro com mais de 6 meses</span><div class="seg" data-seg="l_c6"><button type="button" data-v="sim">Sim</button><button type="button" data-v="nao">Não</button></div><span class="hint">Exceção MEI: pode ir ao nível 7.</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="result"><div class="panel" id="l_out"></div></div>
+  </div>
+</section>
+
+<section id="tab-busca" role="tabpanel" hidden>
+  <div class="panel"><h2>Pesquisar atividade</h2>
+    <div class="f"><label for="b_q">CNAE (código ou descrição) ou MCC (código ou nome)</label><input type="search" id="b_q" placeholder="Ex.: 96.02-5-01, cabeleireiros, 7230"></div>
+    <p class="note">Mostra o MCC de cada CNAE e o que a planilha de definições permite para banking, venda online via API e Link de pagamento. Quando o CNAE tem mais de um MCC, vale o mais restritivo na calculadora.</p>
+    <div id="b_out"></div>
+  </div>
+</section>
+
+<section id="tab-regras" role="tabpanel" hidden class="doc"><div class="panel" id="regras"></div></section>
+
+</main>
+</div>
+<script id="dados" type="application/json">__DATA__</script>
+<script>__ENGINE__</script>
+<script>
+(function(){
+'use strict';
+var E=window.Engine, DATA=JSON.parse(document.getElementById('dados').textContent), B=E.criarBusca(DATA);
+var $=function(id){return document.getElementById(id)};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function pct(x){return x===Infinity?'sem comissão':(x*100).toFixed(1).replace('.',',')+'%'}
+
+/* ---------- abas ---------- */
+var tabs=document.querySelectorAll('#tabs button');
+function showTab(n){tabs.forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.tab===n))});
+  ['api','link','busca','regras'].forEach(function(t){$('tab-'+t).hidden=t!==n});
+  try{history.replaceState(null,'','#'+n)}catch(e){}}
+tabs.forEach(function(b){b.addEventListener('click',function(){showTab(b.dataset.tab)})});
+var h=(location.hash||'').slice(1); if(['api','link','busca','regras'].indexOf(h)>-1) showTab(h);
+
+/* ---------- controles segmentados ---------- */
+var S={};
+function seg(name,val){S[name]=val;var el=document.querySelector('[data-seg="'+name+'"]');if(!el)return;
+  el.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===val))})}
+document.querySelectorAll('[data-seg]').forEach(function(el){el.querySelectorAll('button').forEach(function(b){
+  b.addEventListener('click',function(){seg(el.dataset.seg,b.dataset.v);refresh()})})});
+
+/* ---------- resultado: partes comuns ---------- */
+function permTable(rows){return '<div class="tw"><table><tbody>'+rows.map(function(r){return '<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>'}).join('')+'</tbody></table></div>'}
+function pillFor(v){return v===true?'<span class="pill ok">LIBERADO</span>':v===false?'<span class="pill bad">NÃO</span>':'<span class="pill na">ANALISTA</span>'}
+function copyBtn(id){return '<button type="button" class="btn ghost" data-copy="'+id+'">Copiar resumo</button>'}
+function bindCopy(root,text){var b=root.querySelector('[data-copy]');if(!b)return;b.addEventListener('click',function(){
+  function fb(){var t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();try{document.execCommand('copy');b.textContent='Copiado'}catch(e){b.textContent='Selecione e copie manualmente'}t.remove()}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){b.textContent='Copiado'},fb)}else fb()})}
+
+function renderApi(r,el,state){
+  if(!r.ok){el.innerHTML='<h2>Resultado</h2><p class="err">Falta preencher:</p><ul class="steps">'+r.erros.map(function(e){return '<li>'+esc(e.replace('Informe: ',''))+'</li>'}).join('')+'</ul>';return}
+  var p=r.permissoes, cls=r.liberado?(r.nivel>=8?'warn':'ok'):'bad';
+  var label=r.liberado?(r.nivel>=8?'LIBERADO COM RESTRIÇÕES':'LIBERADO'):'NEGADO';
+  var f=r.funcionalidades;
+  var html='<h2>Resultado · venda online via API</h2><div class="verdict"><div class="lvl">'+r.nivel+'</div><div><div class="vname">'+esc(r.nivelNome)+'</div><span class="chip '+cls+'">'+label+'</span> <span class="code">'+r.total+' pontos</span></div></div>';
+  html+='<div class="tw"><table><thead><tr><th>Indicador</th><th>Informado</th><th class="n">Pts</th></tr></thead><tbody>'+
+    r.criterios.map(function(c){return '<tr><td>'+esc(c.rotulo)+'</td><td>'+esc(c.valor)+'</td><td class="n">'+c.pontos+'</td></tr>'}).join('')+
+    (state.cnpj==='nao'?'<tr><td>CNPJ irregular</td><td>Não</td><td class="n">100</td></tr>':'')+
+    '<tr class="hi"><td colspan="2">Total</td><td class="n">'+r.total+'</td></tr></tbody></table></div>';
+  if(r.motivos.length)html+='<ul class="reasons">'+r.motivos.map(function(m){return '<li class="bad">'+esc(m)+'</li>'}).join('')+'</ul>';
+  if(r.liberado){
+    html+='<h2 style="margin-top:18px">Permissões do nível '+r.nivel+'</h2>'+permTable([['Venda online','Sim'],['3DS',p.tds],['Valor mínimo 3DS',p.min3ds],['Valor 3DS obrigatório',p.obrig3ds],['Antifraude',p.antifraude],['Repescagem antifraude',p.repescagem],['Antifraude próprio ou Paytime',p.antProprio],['Antecipação',p.antecipacao]]);
+    if(p.divergencia)html+='<ul class="reasons"><li>'+esc(p.divergencia)+'</li></ul>';
+  }
+  html+='<h2 style="margin-top:18px">Funcionalidades da API</h2><div class="tw"><table><tbody>'+
+   [['Venda online',f.vendaOnline],['Banking',f.banking],['Consultas',f.consultas],['Cadastro',f.cadastro],['Boletos',f.boletos]].map(function(x){return '<tr><td>'+pillFor(x[1].liberado)+esc(x[0])+'</td><td>'+esc(x[1].obs)+'</td></tr>'}).join('')+'</tbody></table></div>';
+  html+='<h2 style="margin-top:18px">Próximos passos</h2><ol class="steps">'+r.proximosPassos.map(function(s){return '<li>'+esc(s)+'</li>'}).join('')+'</ol>';
+  html+='<div class="row" style="margin-top:14px">'+copyBtn('a')+'</div>';
+  el.innerHTML=html;
+  var txt='Venda online via API ('+(r.tipo==='ativo'?'parceiro ativo':'novo parceiro')+')\nPontuação: '+r.total+'\nNível: '+r.nivel+' - '+r.nivelNome+'\nResultado: '+label+'\n'+
+    r.criterios.map(function(c){return '- '+c.rotulo+': '+c.valor+' ('+c.pontos+')'}).join('\n')+(r.motivos.length?'\nMotivos: '+r.motivos.join(' '):'');
+  bindCopy(el,txt);
+}
+
+function renderLink(r,el){
+  if(!r.ok){el.innerHTML='<h2>Resultado</h2><p class="err">Falta preencher:</p><ul class="steps">'+r.erros.map(function(e){return '<li>'+esc(e.replace('Informe: ',''))+'</li>'}).join('')+'</ul>';return}
+  var p=r.permissoes, cls=r.liberado?(r.nivel>=8?'warn':'ok'):'bad';
+  var label=r.liberado?'LIBERADO':'NEGADO';
+  var html='<h2>Resultado · venda online via Link (CNP)</h2><div class="verdict"><div class="lvl">'+r.nivel+'</div><div><div class="vname">'+esc(r.nivelNome)+'</div><span class="chip '+cls+'">'+label+'</span>'+(r.nivelCalculado!==r.nivel?' <span class="code">calculado: '+r.nivelCalculado+'</span>':'')+'</div></div>';
+  if(r.razaoDisputas!==null)html+='<p class="note" style="margin:0 0 8px">Disputas sobre comissão (6 meses): <b>'+pct(r.razaoDisputas)+'</b>. Saudável abaixo de 50%; comprometido de 50% a 100%; acima de 100% é inaceitável.</p>';
+  if(r.motivos.length)html+='<ul class="reasons">'+r.motivos.map(function(m){return '<li class="'+(r.liberado?'':'bad')+'">'+esc(m)+'</li>'}).join('')+'</ul>';
+  if(r.liberado)html+='<h2 style="margin-top:18px">Permissões do nível '+r.nivel+'</h2>'+permTable([['Venda online','Sim'],['3DS',p.tds],['Valor mínimo 3DS',p.min3ds],['Valor mínimo 3DS obrigatório',p.obrig3ds],['Repescagem antifraude',p.repescagem],['Antecipação',p.antecipacao]]);
+  html+='<p class="note">A liberação vale para a credenciadora. Cada EC é analisado individualmente pela atividade (inclusive o EC da própria credenciadora). Marcar em: Parcerias > Credenciadora > Permissões > Permissões dos Estabelecimentos da Credenciadora.</p>';
+  html+='<div class="row" style="margin-top:10px">'+copyBtn('l')+'</div>';
+  el.innerHTML=html;
+  bindCopy(el,'Venda online via Link (CNP)\nNível: '+r.nivel+' - '+r.nivelNome+(r.nivelCalculado!==r.nivel?' (calculado '+r.nivelCalculado+')':'')+'\nResultado: '+label+(r.motivos.length?'\nMotivos: '+r.motivos.join(' '):''));
+}
+
+/* ---------- API: estado e eventos ---------- */
+var SAMPLE_API={a_tipo:'ativo',a_cnpj:'sim',a_tempo:'1-3a',a_rep:'baixo',a_mov:'padrao',a_disp:'ate10',a_cap:'media',a_setor:'apta',a_banking:'sem'};
+function fillApi(o){['a_tipo','a_cnpj'].forEach(function(k){seg(k,o[k]||'')});
+  ['a_tempo','a_rep','a_mov','a_disp','a_cap','a_setor','a_banking'].forEach(function(k){$(k).value=o[k]||(k==='a_banking'?'sem':'')});
+  ['a_dv','a_cv','a_fat'].forEach(function(k){$(k).value=''});$('a_setorhint').textContent='Pesquise a atividade ao lado para preencher.';$('a_found').innerHTML='';$('a_q').value=''}
+function inputApi(){return {tipo:S.a_tipo,cnpjRegular:S.a_cnpj==='sim'?true:S.a_cnpj==='nao'?false:undefined,tempo:$('a_tempo').value,reputacao:$('a_rep').value,mov:$('a_mov').value,disputas:$('a_disp').value,capacidade:$('a_cap').value,setor:$('a_setor').value,setorBanking:$('a_banking').value}}
+var userEdited=false;
+function refreshApi(){
+  var ativo=S.a_tipo==='ativo';
+  document.querySelectorAll('#tab-api [data-only="ativo"]').forEach(function(e){e.hidden=!ativo});
+  var dv=$('a_dv').value,cv=$('a_cv').value;
+  if(ativo&&dv!==''&&cv!==''){var r=E.razao(dv,cv);if(r!==null){$('a_disp').value=E.classeDisputasApi(r);$('a_dhint').textContent='Disputas = '+pct(r)+' da comissão.'}}
+  if($('a_fat').value!=='')$('a_cap').value=E.classeCapacidade(Number($('a_fat').value));
+  renderApi(E.calcApi(inputApi()),$('a_out'),S);
+}
+/* ---------- Link ---------- */
+var SAMPLE_LINK={l_tipo:'ativo',l_cnpj:'sim',l_kyc:'baixo',l_porte:'medio',l_ab:'mais1a',l_mov:'sim',l_dv:'12000',l_cv:'80000'};
+function fillLink(o){['l_tipo','l_cnpj','l_mov','l_c6'].forEach(function(k){seg(k,o[k]||'')});
+  ['l_kyc','l_porte','l_ab'].forEach(function(k){$(k).value=o[k]||''});['l_dv','l_cv','l_cap','l_tpv'].forEach(function(k){$(k).value=o[k]||''});$('l_rep').checked=false}
+function refreshLink(){
+  var ativo=S.l_tipo==='ativo';
+  document.querySelectorAll('#tab-link [data-only="ativo"]').forEach(function(e){e.hidden=!ativo});
+  var mei=$('l_porte').value==='mei';
+  document.querySelectorAll('[data-only-mei]').forEach(function(e){e.hidden=!(ativo&&mei)});
+  if($('l_cap').value!==''&&!mei)$('l_porte').value=E.porteDeCapital(Number($('l_cap').value));
+  var rz=E.razao($('l_dv').value,$('l_cv').value);$('l_dhint').textContent=rz===null?'':'Disputas = '+pct(rz)+' da comissão.';
+  var i={tipo:S.l_tipo,cnpjAtivo:S.l_cnpj==='sim'?true:S.l_cnpj==='nao'?false:undefined,kyc:$('l_kyc').value,porte:$('l_porte').value,
+    disputas6m:$('l_dv').value,comissao6m:$('l_cv').value,movCompativel:S.l_mov==='sim'?true:S.l_mov==='nao'?false:undefined,abertura:$('l_ab').value,
+    reputacaoNegativa:$('l_rep').checked,tpv6m:$('l_tpv').value,cadastroMais6m:S.l_c6==='sim'};
+  renderLink(E.calcLink(i),$('l_out'));
+}
+function refresh(){refreshApi();refreshLink()}
+document.querySelectorAll('#tab-api select,#tab-api input[type=number],#tab-link select,#tab-link input').forEach(function(e){e.addEventListener('input',refresh);e.addEventListener('change',refresh)});
+$('limparApi').addEventListener('click',function(){fillApi({a_tipo:'ativo'});$('bannerApi').hidden=true;refresh()});
+$('limparLink').addEventListener('click',function(){fillLink({l_tipo:'ativo'});$('bannerLink').hidden=true;refresh()});
+document.querySelectorAll('#tab-api select,#tab-api input,#tab-api .seg').forEach(function(e){e.addEventListener('input',function(){$('bannerApi').hidden=true})});
+document.querySelectorAll('#tab-link select,#tab-link input,#tab-link .seg').forEach(function(e){e.addEventListener('input',function(){$('bannerLink').hidden=true})});
+
+/* ---------- pesquisa de atividade ---------- */
+function flag(v,t){return '<span class="flag '+(v===true?'y':v===false?'n':'')+'">'+esc(t)+': '+(v===true?'Sim':v===false?'Não':'-')+'</span>'}
+function money(v){return typeof v==='number'?E.brl(v):'-'}
+function mccHtml(m){
+  var a=m.api,l=m.link,o='<div class="mccbox"><div><b>MCC '+m.codigo+'</b> · '+esc(m.nome)+'</div>';
+  if(a){o+='<div class="flags">'+flag(a.bank,'Banking')+flag(a.on,'Venda online API')+flag(a.tds,'3DS API')+flag(a.cs,'Clearsale API')+'<span class="flag">3DS mínimo API: '+money(a.min3)+'</span><span class="flag">Somente 3DS API: '+money(a.only3)+'</span></div>';
+    if(a.obs)o+='<div class="hint" style="margin-top:6px">Obs. Prevenção: '+esc(a.obs)+'</div>'}
+  if(l){o+='<div class="flags">'+flag(l.on,'Link: venda online')+flag(l.d1,'D+1')+flag(l.d30,'D+30')+flag(l.tds,'3DS')+flag(l.cs,'Clearsale')+'<span class="flag">3DS mínimo: '+money(l.min3)+'</span><span class="flag">Limite por transação: '+money(l.max)+'</span></div>'}
+  return o+'</div>'}
+function renderBusca(q,el,onPick){
+  var r=B.buscar(q,30);
+  if(q.trim().length<2){el.innerHTML='';return}
+  if(!r.cnaes.length&&!r.mccs.length){el.innerHTML='<p class="note">Nada encontrado. Sem atividade identificada, use "Sem definição" no risco do setor.</p>';return}
+  var html='';
+  r.cnaes.forEach(function(c,i){html+='<div class="res"><h3>'+esc(c.nome)+'</h3><div class="code">CNAE '+esc(c.codigo)+'</div>'+c.mccs.map(mccHtml).join('')+(onPick?'<div class="row" style="margin-top:10px"><button type="button" class="btn ghost" data-pick="c'+i+'">Usar na calculadora</button></div>':'')+'</div>'});
+  r.mccs.forEach(function(m,i){html+='<div class="res"><h3>MCC '+m.codigo+'</h3>'+mccHtml(m)+(onPick?'<div class="row" style="margin-top:10px"><button type="button" class="btn ghost" data-pick="m'+i+'">Usar na calculadora</button></div>':'')+'</div>'});
+  el.innerHTML=html;
+  if(onPick)el.querySelectorAll('[data-pick]').forEach(function(b){b.addEventListener('click',function(){var k=b.dataset.pick;var mccs=k[0]==='c'?r.cnaes[+k.slice(1)].mccs:[r.mccs[+k.slice(1)]];onPick(mccs,k[0]==='c'?r.cnaes[+k.slice(1)].nome:r.mccs[+k.slice(1)].nome)})});
+}
+$('b_q').addEventListener('input',function(){renderBusca($('b_q').value,$('b_out'),null)});
+/* busca compacta dentro da calculadora */
+$('a_q').addEventListener('input',function(){
+  var q=$('a_q').value,r=B.buscar(q,8),el=$('a_found');el.innerHTML='';
+  if(q.trim().length<2)return;
+  var items=r.cnaes.map(function(c){return {t:c.codigo+' · '+c.nome,mccs:c.mccs}}).concat(r.mccs.map(function(m){return {t:'MCC '+m.codigo+' · '+m.nome,mccs:[m]}}));
+  if(!items.length){el.innerHTML='<span class="hint">Nada encontrado. Use "Sem definição".</span>';return}
+  items.slice(0,8).forEach(function(it){var b=document.createElement('button');b.type='button';b.textContent=it.t;b.addEventListener('click',function(){
+    var s=E.setorDeMccs(it.mccs,'online'),bk=E.setorDeMccs(it.mccs,'banking');
+    $('a_setor').value=s;$('a_banking').value=bk;
+    var obs=it.mccs.some(function(m){return m.api&&m.api.obs});
+    $('a_setorhint').textContent='Pela atividade: '+it.t+(obs?' · Conferir CNAE na lista de restritos.':'')+(it.mccs.length>1?' · '+it.mccs.length+' MCCs, vale o mais restritivo.':'');
+    el.innerHTML='';$('bannerApi').hidden=true;refresh()});el.appendChild(b)});
+});
+
+/* ---------- aba Regras ---------- */
+function regras(){
+  var NA=E.NIVEIS_API,NL=E.NIVEIS_LINK,h='';
+  h+='<h2>Como a análise funciona</h2><p>A análise principal é da <b>credenciadora</b>, não do EC. Qualquer regra aplicada à credenciadora vale para todos os ECs abaixo dela. Para parceiros novos, a análise acontece junto do KYC. Para parceiros ativos, é sob demanda: o gerente de contas encaminha ao time de Prevenção, que registra o resultado no quadro Permissionamento API.</p>';
+  h+='<h3>Funcionalidades da API</h3><ul><li><b>Consultas</b>: liberada automaticamente junto com a permissão de API. A base é o KYC (CNPJ e sócios), por isso o KYC precisa ser robusto.</li><li><b>Cadastro</b>: listar e cadastrar ECs e ativar plataformas. Risco: empresas de fachada em larga escala. Decisão do analista a partir do KYC.</li><li><b>Banking</b>: saldo, extrato, PIX, TED e pagamento de boleto. Considera capacidade financeira (faturamento ≥ R$ 500 mil boa, ≥ R$ 300 mil média, abaixo disso baixa) e segmento (atividade inapta para banking é negada sempre). Na planilha, banking só é liberado com pontuação abaixo de 100. Exige homologação técnica.</li><li><b>Boletos</b>: risco de emissão em massa para fraude, lavagem ou falsos investimentos. Decisão do analista a partir do KYC.</li><li><b>Venda online</b>: usa a pontuação de risco abaixo e define o nível.</li></ul>';
+  h+='<h2 style="margin-top:24px">Venda online via API: pontuação</h2><p>Cada indicador recebe um percentual de risco. A soma define o nível. Risco baixo vale 0, médio 20, alto 40 e inaceitável 100.</p>';
+  h+='<div class="tw"><table><thead><tr><th>Indicador</th><th>Baixo (0)</th><th>Médio (20)</th><th>Alto (40)</th><th>Inaceitável (100)</th><th>Quem pontua</th></tr></thead><tbody>'+
+   '<tr><td>CNPJ regular</td><td>Regular</td><td>-</td><td>-</td><td>Suspenso, inapto ou baixado (nega a API e aciona o Jurídico)</td><td>Ativos e novos</td></tr>'+
+   '<tr><td>Tempo de operação</td><td>Mais de 3 anos</td><td>1 a 3 anos</td><td>Até 1 ano</td><td>-</td><td>Ativos e novos</td></tr>'+
+   '<tr><td>Reputação no mercado</td><td>KYC baixo</td><td>KYC médio</td><td>KYC alto</td><td>KYC inaceitável</td><td>Ativos e novos</td></tr>'+
+   '<tr><td>Movimentação transacional (3 meses)</td><td>Dentro do padrão</td><td>Parcial</td><td>Fora do padrão</td><td>-</td><td>Só ativos</td></tr>'+
+   '<tr><td>Disputas e chargeback (6 meses, sobre a comissão)</td><td>Até 10%</td><td>11% a 50%</td><td>Acima de 50%</td><td>-</td><td>Só ativos</td></tr>'+
+   '<tr><td>Capacidade financeira (faturamento do último mês)</td><td>≥ R$ 500 mil</td><td>≥ R$ 300 mil</td><td>&lt; R$ 300 mil</td><td>-</td><td>Ativos e novos</td></tr>'+
+   '<tr><td>Risco do setor</td><td>Atividade apta ou sem definição</td><td>-</td><td>-</td><td>Atividade inapta (nega independentemente do resto)</td><td>Ativos e novos</td></tr></tbody></table></div>';
+  h+='<h3>Faixas de pontuação</h3><div class="tw"><table><thead><tr><th>Pontos</th><th>Nível</th></tr></thead><tbody><tr><td>0 (todos os indicadores em risco baixo)</td><td>2 · Risco muito baixo</td></tr><tr><td>20 a 29</td><td>3 · Risco baixo</td></tr><tr><td>30 a 59</td><td>4 · Risco médio</td></tr><tr><td>60 a 79</td><td>8 · Risco alto</td></tr><tr><td>80 a 99</td><td>9 · Risco muito alto</td></tr><tr><td>100 ou mais</td><td>10 · Inaceitável</td></tr></tbody></table></div><p class="note">Nível 1 (personalizado) depende de negociação. Níveis 5, 6 e 7 (D+30) estão como pendentes na planilha e não têm faixa.</p>';
+  h+='<h3>Permissões por nível (API)</h3><div class="tw"><table><thead><tr><th>Nível</th><th>Venda online</th><th>3DS</th><th>Valor mín. 3DS</th><th>3DS obrigatório</th><th>Antifraude</th><th>Repescagem</th><th>Antifraude próprio/Paytime</th><th>Antecipação</th></tr></thead><tbody>'+
+   Object.keys(NA).map(function(k){var p=NA[k];return '<tr><td>'+k+' · '+esc(p.nome)+'</td><td>'+(p.liberado===null?'Sob negociação':p.liberado?'Sim':'Não')+'</td><td>'+esc(p.tds)+'</td><td>'+esc(p.min3ds)+'</td><td>'+esc(p.obrig3ds)+'</td><td>'+esc(p.antifraude)+'</td><td>'+esc(p.repescagem)+'</td><td>'+esc(p.antProprio)+'</td><td>'+esc(p.antecipacao)+'</td></tr>'}).join('')+'</tbody></table></div><p class="note">Repescagem antifraude: quando o pagamento passa pelo 3DS e dá erro, permite nova tentativa no antifraude.</p>';
+  h+='<h2 style="margin-top:24px">Venda online via Link (CNP)</h2><p>A permissão é da credenciadora e não libera os ECs em massa: cada EC é analisado pela atividade. A credenciadora não pode habilitar venda online no próprio EC sem a análise individual. Reanálise de link negado: após 60 dias de operação. Reanálise da classificação de novos parceiros: após 90 dias da primeira transação.</p>';
+  h+='<h3>Novos parceiros: risco do KYC e porte</h3><div class="tw"><table><thead><tr><th>KYC</th><th>Grande</th><th>Médio</th><th>Pequeno</th><th>MEI</th></tr></thead><tbody>'+
+   ['baixo','medio','alto'].map(function(k){var m=E.LINK_NOVOS[k];return '<tr><td>'+E.ROTULO_RISCO[k]+'</td><td>'+m.grande+'</td><td>'+m.medio+'</td><td>'+m.pequeno+'</td><td>'+m.mei+'</td></tr>'}).join('')+'</tbody></table></div><p class="note">Porte pelo capital social: pequeno até R$ 360 mil; médio de R$ 360.000,01 a R$ 4,8 milhões; grande acima disso. MEI tem limite de R$ 81 mil de faturamento por ano. Nível 10 é inaceitável. KYC inaceitável não habilita.</p>';
+  h+='<h3>Parceiros ativos</h3><ul><li><b>Nível 10</b>: CNPJ irregular, inapto ou baixado; novo KYC inaceitável; KYC alto com situação financeira comprometida; inconsistência entre atividade e movimentação (encaminhar à Gestão de Casos); chargebacks do semestre acima da comissão do semestre; histórico reputacional negativo.</li><li><b>Nível 9</b>: MEI (qualquer KYC), ou KYC baixo/médio com situação financeira comprometida (disputas de 50% a 100% da comissão em 6 meses). Exceção MEI: cadastro acima de 6 meses, TPV de pelo menos R$ 1 milhão em 6 meses e disputas abaixo de 50% da comissão pode ir ao nível 7.</li><li><b>Demais casos</b> (financeiramente saudável e movimentação compatível):<ul><li>KYC baixo: grande = 2; médio = 2 se aberto há mais de 1 ano, senão 3; pequeno = 3 se aberto há mais de 1 ano, senão 4.</li><li>KYC médio: grande = 4; médio = 5; pequeno = 6.</li><li>KYC alto: grande ou médio = 7; pequeno = 8.</li></ul></li></ul><p class="note">Níveis 5, 6 e 7 são D+30 e ainda não existem no sistema: alocar no nível 9. Se o KYC tem mais de 6 meses, refazer. Se tem mais de 3 meses, refazer a pesquisa em sites e redes sociais.</p>';
+  h+='<h3>Permissões por nível (Link)</h3><div class="tw"><table><thead><tr><th>Nível</th><th>Venda online</th><th>3DS</th><th>Valor mín. 3DS</th><th>Valor mín. 3DS obrigatório</th><th>Repescagem AF</th><th>Antecipação</th></tr></thead><tbody>'+
+   Object.keys(NL).map(function(k){var p=NL[k];return '<tr><td>'+k+' · '+esc(p.nome)+'</td><td>'+(p.liberado===null?'Personalizado':p.liberado?'Sim':'Não')+'</td><td>'+esc(p.tds)+'</td><td>'+esc(p.min3ds||'-')+'</td><td>'+esc(p.obrig3ds)+'</td><td>'+esc(p.repescagem)+'</td><td>'+esc(p.antecipacao)+'</td></tr>'}).join('')+'</tbody></table></div>';
+  h+='<h3>Sistema de afiliados</h3><p>Liberação exclusiva no plano D+1, sem 3DS, para credenciadoras que vendem somente maquininhas. Se a credenciadora já tem venda online, libera de imediato. Saldo negativo elevado, ou saldo negativo acima de 80% da comissão (Zoop + PagSeguro), resulta em "Não" em "Liberar CNP?". Também pesam red flags de PLD. Credenciadoras novas ou sem TPV e comissão relevantes são liberadas e monitoradas. Negados podem ser reanalisados após 90 dias do primeiro pedido, e um plano D+30 pode ser oferecido. Esta ferramenta ainda não calcula afiliados.</p>';
+  h+='<h2 style="margin-top:24px">Interpretações adotadas</h2><p>Pontos em que os documentos têm lacuna ou divergência. A calculadora segue o que está abaixo.</p><ul>'+E.INTERPRETACOES.map(function(t){return '<li>'+esc(t)+'</li>'}).join('')+'</ul>';
+  h+='<h2 style="margin-top:24px">Fluxo após a decisão</h2><ol><li>Novo parceiro: registrar o resultado no KYC. Parceiro ativo: Analista de Prevenção III cria o elemento no quadro.</li><li>Marcar "Aguardando homologação" na coluna AVALIAÇÃO TEC. A Tecnologia homologa e muda para "Homologação OK".</li><li>Prevenção configura no cadastro da credenciadora: Aba Permissões > "Integração (API)" > Permissões dos Estabelecimentos da Credenciadora.</li><li>Mudar para "Permissionamento OK" na coluna PERMISSIONAMENTO PREV.</li></ol>';
+  $('regras').innerHTML=h;
+}
+regras();
+fillApi(SAMPLE_API);fillLink(SAMPLE_LINK);refresh();
+})();
+</script>
